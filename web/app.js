@@ -11,20 +11,24 @@
   const BATCH_INTERVAL = 15 * MIN; // CaseEscalationBatch runs every 15 minutes
 
   const LEVELS = ['Support Agent', 'Team Lead', 'Support Manager', 'Case Admin'];
-  const PEOPLE = {
-    asha: { name: 'Asha R.', role: 0 },
-    ravi: { name: 'Ravi K.', role: 0 },
-    lokesh: { name: 'Lokesh M.', role: 1 },
-    divya: { name: 'Divya S.', role: 1 },
-    meera: { name: 'Meera P.', role: 2 },
-    arun: { name: 'Arun V.', role: 3 }
-  };
-  const VIEWERS = [
-    { role: 0, person: 'asha' },
-    { role: 1, person: 'lokesh' },
-    { role: 2, person: 'meera' },
-    { role: 3, person: 'arun' }
+  /* ---------------- accounts (role-based login) ----------------
+     In the real app, login, profiles and roles are handled by Salesforce.
+     This demo keeps accounts in the browser's localStorage, with passwords
+     stored only as salted SHA-256 hashes, so the role-based flow can be shown. */
+  const USERS_KEY = 'caseflow-users-v1';
+  const SESSION_KEY = 'caseflow-session';
+  const DEMO_PASSWORD = 'demo1234';
+  const DEMO_USERS = [
+    { username: 'asha', name: 'Asha R.', role: 0 },
+    { username: 'ravi', name: 'Ravi K.', role: 0 },
+    { username: 'lokesh', name: 'Lokesh M.', role: 1 },
+    { username: 'divya', name: 'Divya S.', role: 1 },
+    { username: 'meera', name: 'Meera P.', role: 2 },
+    { username: 'arun', name: 'Arun V.', role: 3 }
   ];
+  let users = [];          // [{ username, name, role, salt, hash, createdAt }]
+  let PEOPLE = {};         // username -> { name, role }  (everyone who can own a case)
+  let currentUser = null;  // username of the person signed in
   const PERMS = [
     { escalate: true, team: false, reassign: false, policy: false },
     { escalate: true, team: true, reassign: true, policy: false },
@@ -187,8 +191,87 @@
     return state;
   }
 
+  /* ---------------- accounts ---------------- */
+  async function hashPassword(password, salt) {
+    const bytes = new TextEncoder().encode(salt + ':' + password);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  function newSalt() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  function saveUsers() {
+    try { localStorage.setItem(USERS_KEY, JSON.stringify(users)); } catch (e) { /* storage unavailable */ }
+  }
+  function rebuildPeople() {
+    PEOPLE = {};
+    users.forEach((u) => { PEOPLE[u.username] = { name: u.name, role: u.role }; });
+  }
+  async function loadUsers() {
+    try {
+      const raw = localStorage.getItem(USERS_KEY);
+      if (raw) users = JSON.parse(raw);
+    } catch (e) { users = []; }
+    // Make sure the demo accounts exist
+    for (const d of DEMO_USERS) {
+      if (!users.some((u) => u.username === d.username)) {
+        const salt = newSalt();
+        users.push({ ...d, salt, hash: await hashPassword(DEMO_PASSWORD, salt), createdAt: Date.now() });
+      }
+    }
+    saveUsers();
+    rebuildPeople();
+  }
+  async function signIn(username, password) {
+    const u = users.find((x) => x.username === username.trim().toLowerCase());
+    if (!u || (await hashPassword(password, u.salt)) !== u.hash) throw new Error('Wrong username or password.');
+    return u;
+  }
+  async function createAccount(name, username, password, role) {
+    username = username.trim().toLowerCase();
+    name = name.trim();
+    if (!name) throw new Error('Full name is required.');
+    if (!/^[a-z0-9]{3,20}$/.test(username)) throw new Error('Username must be 3 to 20 lowercase letters or numbers.');
+    if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+    if (![0, 1, 2].includes(role)) throw new Error('Choose a role.');
+    if (users.some((u) => u.username === username)) throw new Error('That username is taken.');
+    const salt = newSalt();
+    const u = { username, name, role, salt, hash: await hashPassword(password, salt), createdAt: Date.now() };
+    users.push(u);
+    saveUsers();
+    rebuildPeople();
+    return u;
+  }
+  function startSession(username) {
+    currentUser = username;
+    try { sessionStorage.setItem(SESSION_KEY, username); } catch (e) { /* ignore */ }
+    state.filter = state.unseen[username] ? 'tome' : 'mine';
+    showApp();
+  }
+  function endSession() {
+    currentUser = null;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+    closeDrawer();
+    showAuth();
+  }
+  function showApp() {
+    $('authView').hidden = true;
+    $('appView').hidden = false;
+    render();
+    window.scrollTo(0, 0);
+  }
+  function showAuth(message) {
+    $('appView').hidden = true;
+    $('authView').hidden = false;
+    authError(message || '');
+  }
+  function authError(message) {
+    $('authError').textContent = message;
+    $('authError').hidden = !message;
+  }
+
   /* ---------------- visibility (role hierarchy + queues) ---------------- */
-  function viewer() { return VIEWERS[state.viewer]; }
+  function viewer() { return { role: PEOPLE[currentUser].role, person: currentUser }; }
   function me() { return viewer().person; }
   function perms() { return PERMS[viewer().role]; }
   function canSee(c) {
@@ -249,19 +332,26 @@
 
   /* ---------------- render ---------------- */
   function render() {
+    if (!currentUser) return;
     renderTop();
     renderLadder();
     renderDesk();
     renderPolicy();
+    renderTeam();
+    scheduleCharts();
     if (openCaseId) renderDrawer();
     justMoved = new Set();
   }
 
   function renderTop() {
-    $('roleButtons').innerHTML = VIEWERS.map((v, i) => {
-      const n = state.unseen[v.person] || 0;
-      return `<button type="button" data-viewer="${i}" aria-pressed="${i === state.viewer}">${LEVELS[v.role]}${n ? `<span class="badge" aria-label="${n} new escalations">${n}</span>` : ''}</button>`;
-    }).join('');
+    const person = PEOPLE[me()];
+    $('userName').textContent = person.name;
+    $('userRole').textContent = LEVELS[person.role];
+    $('userAvatar').textContent = person.name.charAt(0).toUpperCase();
+    const n = state.unseen[me()] || 0;
+    $('userBadge').hidden = !n;
+    $('userBadge').textContent = n;
+    $('userBadge').setAttribute('aria-label', n + ' new escalations');
     $('clockTime').textContent = fmtDay.format(new Date(state.now)) + ', ' + fmtTime.format(new Date(state.now));
   }
 
@@ -336,12 +426,56 @@
     const admin = perms().policy;
     $('policyNote').textContent = admin
       ? 'Hours a case may stay at one level before it moves to the next. Changes apply to the next deadline that is calculated, as in Salesforce custom metadata.'
-      : 'Hours a case may stay at one level before it moves to the next. Switch to Case Admin to edit.';
+      : 'Hours a case may stay at one level before it moves to the next. Only a Case Admin can edit these.';
     const head = `<thead><tr><th scope="col">Priority</th>${[1, 2, 3].map((l) => `<th scope="col">To ${LEVELS[l]}</th>`).join('')}</tr></thead>`;
     const body = ['High', 'Medium', 'Low'].map((pr) => `<tr><th scope="row">${pr}</th>${[0, 1, 2].map((i) =>
       `<td><input type="number" min="0.5" max="240" step="0.5" value="${state.policy[pr][i]}" data-pr="${pr}" data-i="${i}" ${admin ? '' : 'disabled'} aria-label="${pr} priority, hours before moving to ${LEVELS[i + 1]}"><span class="unit">h</span></td>`
     ).join('')}</tr>`).join('');
     $('policyTable').innerHTML = head + '<tbody>' + body + '</tbody>';
+  }
+
+  /* ---------------- team (Case Admin only) ---------------- */
+  function renderTeam() {
+    const admin = viewer().role === 3;
+    $('teamSection').hidden = !admin;
+    if (!admin) return;
+    const rows = users.slice().sort((a, b) => b.role - a.role || a.name.localeCompare(b.name)).map((u) => {
+      const options = LEVELS.map((label, i) => `<option value="${i}" ${i === u.role ? 'selected' : ''}>${label}</option>`).join('');
+      const self = u.username === me();
+      return `<tr><th scope="row">${esc(u.name)}${self ? ' (you)' : ''}</th><td>${esc(u.username)}</td>
+        <td><select data-role-for="${esc(u.username)}" ${self ? 'disabled' : ''} aria-label="Role for ${esc(u.name)}">${options}</select></td>
+        <td>${openLoad(u.username)}</td></tr>`;
+    }).join('');
+    $('teamTable').innerHTML = `<thead><tr><th scope="col">Name</th><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Open cases</th></tr></thead><tbody>${rows}</tbody>`;
+  }
+
+  /* ---------------- charts (Python function /api/chart) ---------------- */
+  let chartTimer = null;
+  function scheduleCharts() {
+    clearTimeout(chartTimer);
+    chartTimer = setTimeout(renderCharts, 400);
+  }
+  async function renderCharts() {
+    const open = state.cases.filter((c) => c.status !== 'Closed');
+    const levels = [0, 1, 2, 3].map((l) => open.filter((c) => c.level === l).length);
+    const slaCounts = { ok: 0, risk: 0, breach: 0, none: 0 };
+    open.forEach((c) => { slaCounts[sla(c).key] += 1; });
+    const theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    try {
+      const response = await fetch('api/chart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ levels, sla: slaCounts, theme })
+      });
+      if (!response.ok) throw new Error('chart service ' + response.status);
+      const data = await response.json();
+      // The SVG comes from our own Python function and holds only numbers and fixed labels
+      $('levelChart').innerHTML = data.levelChart;
+      $('slaChart').innerHTML = data.slaChart;
+      $('chartsSection').hidden = false;
+    } catch (e) {
+      $('chartsSection').hidden = true; // e.g. opened without the Python backend
+    }
   }
 
   /* ---------------- drawer ---------------- */
@@ -480,10 +614,19 @@
     document.addEventListener('click', (e) => {
       const t = e.target.closest('button');
       if (!t) return;
-      if (t.dataset.viewer != null) {
-        state.viewer = Number(t.dataset.viewer);
-        state.filter = state.unseen[VIEWERS[state.viewer].person] ? 'tome' : 'mine';
-        save(); render();
+      if (t.id === 'logoutBtn') {
+        endSession();
+      } else if (t.dataset.demo) {
+        $('signInForm').elements.username.value = t.dataset.demo;
+        $('signInForm').elements.password.value = DEMO_PASSWORD;
+        authError('');
+      } else if (t.id === 'tabSignIn' || t.id === 'tabCreate') {
+        const signIn = t.id === 'tabSignIn';
+        $('tabSignIn').setAttribute('aria-selected', signIn);
+        $('tabCreate').setAttribute('aria-selected', !signIn);
+        $('signInForm').hidden = !signIn;
+        $('createForm').hidden = signIn;
+        authError('');
       } else if (t.dataset.advance) {
         advanceClock(Number(t.dataset.advance));
       } else if (t.dataset.filter) {
@@ -519,6 +662,43 @@
       }
       save();
       render();
+    });
+
+    $('signInForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        const u = await signIn(f.username.value, f.password.value);
+        e.target.reset();
+        startSession(u.username);
+        toast(`Signed in as ${u.name}, ${LEVELS[u.role]}.`);
+      } catch (err) {
+        authError(err.message);
+      }
+    });
+
+    $('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target.elements;
+      try {
+        const u = await createAccount(f.name.value, f.username.value, f.password.value, Number(f.role.value));
+        e.target.reset();
+        startSession(u.username);
+        toast(`Account created. Welcome, ${u.name}.`);
+      } catch (err) {
+        authError(err.message);
+      }
+    });
+
+    $('teamTable').addEventListener('change', (e) => {
+      const username = e.target.dataset.roleFor;
+      if (!username || viewer().role !== 3) return;
+      const u = users.find((x) => x.username === username);
+      u.role = Number(e.target.value);
+      saveUsers();
+      rebuildPeople();
+      render();
+      toast(`${u.name} is now ${LEVELS[u.role]}.`);
     });
 
     $('policyTable').addEventListener('change', (e) => {
@@ -561,7 +741,18 @@
     });
   }
 
-  state = load();
-  bind();
-  render();
+  async function init() {
+    if (!window.crypto || !crypto.subtle) {
+      document.body.innerHTML = '<p style="padding:2rem">Open this page over https (or localhost) so secure login can work.</p>';
+      return;
+    }
+    await loadUsers();
+    state = load();
+    bind();
+    let saved = null;
+    try { saved = sessionStorage.getItem(SESSION_KEY); } catch (e) { /* ignore */ }
+    if (saved && PEOPLE[saved]) startSession(saved);
+    else showAuth();
+  }
+  init();
 })();

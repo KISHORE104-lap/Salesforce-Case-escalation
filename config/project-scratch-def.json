@@ -1,0 +1,15 @@
+{
+  "orgName": "CaseFlow Dev",
+  "edition": "Enterprise",
+  "features": [
+    "EnableSetPasswordInApi"
+  ],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    },
+    "caseSettings": {
+      "systemUserEmail": ""
+    }
+  }
+}

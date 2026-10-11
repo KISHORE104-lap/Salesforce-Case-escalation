@@ -1,0 +1,16 @@
+{
+  "Username": "lead.caseflow@example.com",
+  "Alias": "lead",
+  "FirstName": "Lokesh",
+  "LastName": "Lead",
+  "Email": "lead.caseflow@example.com",
+  "profileName": "CaseFlow Team Lead",
+  "permsets": [
+    "CaseFlow_Team_Lead"
+  ],
+  "TimeZoneSidKey": "Asia/Kolkata",
+  "LocaleSidKey": "en_IN",
+  "LanguageLocaleKey": "en_US",
+  "EmailEncodingKey": "UTF-8",
+  "generatePassword": true
+}
