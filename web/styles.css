@@ -360,3 +360,49 @@ button.wide { width: 100%; padding: 0.65rem 1rem; }
 /* the hidden attribute always wins over display rules */
 [hidden] { display: none !important; }
 .brand.on-dark { order: -1; }
+
+/* ================= Simplified layout ================= */
+.welcome { display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap; padding: 2.25rem 0 1.5rem; }
+.hello { margin: 0 0 0.3rem; color: var(--pen); font-weight: 700; }
+.welcome h1 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); font-weight: 700; }
+.role-help { margin: 0.6rem 0 0; color: var(--ink-soft); font-size: 1.05rem; max-width: 40rem; }
+button.big { font-size: 1.05rem; padding: 0.75rem 1.4rem; }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+.stat {
+  display: grid; gap: 0.2rem; text-align: left; padding: 1rem 1.1rem;
+  background: var(--sheet); border: 1px solid var(--rule); border-top: 4px solid var(--pen); border-radius: var(--radius-m);
+}
+.stat:hover { border-color: var(--pen); }
+.stat-value { font-family: var(--display); font-size: 2.3rem; font-weight: 700; line-height: 1; }
+.stat-label { color: var(--ink-soft); font-weight: 700; font-size: 0.95rem; }
+.stat.info { border-top-color: var(--ok); }
+.stat.alert { border-top-color: var(--breach); }
+.stat.alert .stat-value { color: var(--breach); }
+
+.workspace { grid-template-columns: 1.65fr 1fr; }
+.side { display: grid; gap: 1.25rem; align-content: start; }
+.path-card, .sim-card { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius-m); padding: 1.25rem; }
+.side-help { color: var(--ink-soft); margin: 0.3rem 0 1rem; font-size: 0.95rem; }
+.esc-path { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.step { display: grid; grid-template-columns: 2rem 1fr auto; align-items: center; gap: 0.6rem; padding: 0.55rem 0.7rem; border-radius: var(--radius-s); background: var(--paper); }
+.step.is-me { background: var(--pen-tint); outline: 2px solid var(--pen); }
+.step-num { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--sheet); border: 1px solid var(--rule); font-weight: 700; font-size: 0.9rem; }
+.step.is-me .step-num { background: var(--pen); color: #fff; border-color: var(--pen); }
+.step-name { font-weight: 700; }
+.step-name em { font-style: normal; color: var(--pen); font-weight: 400; }
+.step-count { color: var(--ink-soft); font-size: 0.9rem; white-space: nowrap; }
+.queue-step { background: none; border: 1.5px dashed var(--rule); }
+.sim-clock { margin: 0 0 0.75rem; }
+.sim-card .clock-buttons { display: flex; gap: 0.5rem; }
+.sim-card .clock-buttons button { flex: 1; font-weight: 700; }
+.desk-head { align-items: baseline; }
+
+details.about { margin-top: 1.25rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius-m); padding: 1rem 1.25rem; }
+details.about summary { cursor: pointer; font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+details.about[open] summary { margin-bottom: 0.75rem; }
+
+@media (max-width: 900px) {
+  .workspace { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+}

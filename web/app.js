@@ -288,12 +288,20 @@
   }
 
   const FILTERS = [
-    { key: 'mine', label: 'My open cases', test: (c) => c.status !== 'Closed' && c.owner === me() },
+    { key: 'mine', label: 'My cases', test: (c) => c.status !== 'Closed' && c.owner === me() },
     { key: 'tome', label: 'Escalated to me', test: (c) => c.status !== 'Closed' && c.escalatedTo === me() },
-    { key: 'queue', label: 'Queue', test: (c) => canTake(c) },
-    { key: 'team', label: 'Team', team: true, test: (c) => c.status !== 'Closed' && canSee(c) },
-    { key: 'breached', label: 'SLA breached', team: true, test: (c) => c.status !== 'Closed' && canSee(c) && sla(c).key === 'breach' },
+    { key: 'queue', label: 'Waiting in queue', test: (c) => canTake(c) },
+    { key: 'team', label: 'Whole team', team: true, test: (c) => c.status !== 'Closed' && canSee(c) },
+    { key: 'breached', label: 'Overdue', team: true, test: (c) => c.status !== 'Closed' && canSee(c) && sla(c).key === 'breach' },
     { key: 'closed', label: 'Closed', test: (c) => c.status === 'Closed' && canSee(c) }
+  ];
+
+  // What each role does, in plain words (shown at the top after sign-in)
+  const ROLE_HELP = [
+    'Pick up new cases from the queue, solve them, and press Escalate when you need help.',
+    'Cases your agents could not solve come to you. You can also see and reassign your team\'s cases.',
+    'You see every case and every overdue case, and you receive cases your Team Leads escalate.',
+    'You are the final step. You also set the deadlines and manage everyone\'s role.'
   ];
 
   /* ---------------- helpers ---------------- */
@@ -334,7 +342,9 @@
   function render() {
     if (!currentUser) return;
     renderTop();
-    renderLadder();
+    renderWelcome();
+    renderStats();
+    renderPath();
     renderDesk();
     renderPolicy();
     renderTeam();
@@ -355,32 +365,47 @@
     $('clockTime').textContent = fmtDay.format(new Date(state.now)) + ', ' + fmtTime.format(new Date(state.now));
   }
 
-  function chip(c) {
-    const s = sla(c);
-    return `<button type="button" class="chip ${s.key}${justMoved.has(c.id) ? ' moved' : ''}" data-case="${c.id}" title="${esc(c.subject)} — ${s.label}">${c.num.slice(-4)}</button>`;
+  function renderWelcome() {
+    const v = viewer();
+    const hour = new Date().getHours();
+    const part = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    $('hello').textContent = `${part}, ${PEOPLE[v.person].name.split(' ')[0]}`;
+    $('roleTitle').textContent = `You are signed in as ${/^[AEIOU]/.test(LEVELS[v.role]) ? 'an' : 'a'} ${LEVELS[v.role]}`;
+    $('roleHelp').textContent = ROLE_HELP[v.role];
   }
 
-  function renderLadder() {
+  // Four big numbers. Clicking one shows those cases in the list.
+  function renderStats() {
+    const visibleOpen = state.cases.filter((c) => c.status !== 'Closed' && canSee(c));
+    const overdue = visibleOpen.filter((c) => sla(c).key === 'breach' && (perms().team || c.owner === me())).length;
+    const count = (key) => state.cases.filter(FILTERS.find((f) => f.key === key).test).length;
+    const cards = [
+      { key: 'mine', label: 'My open cases', value: count('mine'), tone: '' },
+      { key: 'tome', label: 'Escalated to me', value: count('tome'), tone: 'info' },
+      { key: 'queue', label: 'Waiting in queue', value: count('queue'), tone: '' },
+      { key: perms().team ? 'breached' : 'mine', label: 'Overdue', value: overdue, tone: overdue ? 'alert' : '' }
+    ];
+    $('stats').innerHTML = cards.map((c) => `<button type="button" class="stat ${c.tone}" data-filter="${c.key}">
+      <span class="stat-value">${c.value}</span><span class="stat-label">${c.label}</span></button>`).join('');
+  }
+
+  // The four steps of the escalation path with how many open cases sit at each
+  function renderPath() {
     const open = state.cases.filter((c) => c.status !== 'Closed');
-    const rungs = [3, 2, 1, 0].map((lvl) => {
-      const here = open.filter((c) => c.level === lvl && !(lvl === 0 && isQueue(c.owner)));
-      const people = Object.keys(PEOPLE).filter((p) => PEOPLE[p].role === lvl).map((p) => PEOPLE[p].name.split(' ')[0]).join(', ');
-      return `<li class="rung${viewer().role === lvl ? ' is-me' : ''}">
-        <div class="rung-head"><span class="rung-name">${LEVELS[lvl]}<small>${people}</small></span>
-        <span class="rung-count">${here.length} ${here.length === 1 ? 'case' : 'cases'}</span></div>
-        <div class="chips">${here.length ? here.map(chip).join('') : '<span class="empty-rung">Nothing at this level</span>'}</div>
-      </li>`;
-    }).join('');
-    $('rungs').innerHTML = rungs;
-    const queued = open.filter((c) => c.level === 0 && isQueue(c.owner));
-    $('queue').innerHTML = `<div class="rung-head"><span class="rung-name">Tier 1 Support queue</span><span class="rung-count">${queued.length} waiting</span></div>
-      <div class="chips">${queued.length ? queued.map(chip).join('') : '<span class="empty-rung">Queue is empty</span>'}</div>`;
+    const queued = open.filter((c) => isQueue(c.owner) && c.level === 0).length;
+    $('path').innerHTML = [0, 1, 2, 3].map((lvl) => {
+      const n = open.filter((c) => c.level === lvl && !(lvl === 0 && isQueue(c.owner))).length;
+      const mine = viewer().role === lvl;
+      return `<li class="step${mine ? ' is-me' : ''}">
+        <span class="step-num">${lvl + 1}</span>
+        <span class="step-name">${LEVELS[lvl]}${mine ? ' <em>(you)</em>' : ''}</span>
+        <span class="step-count">${n} ${n === 1 ? 'case' : 'cases'}</span></li>`;
+    }).join('') + `<li class="step queue-step"><span class="step-num">·</span><span class="step-name">Waiting in queue</span><span class="step-count">${queued}</span></li>`;
   }
 
   function renderDesk() {
     const v = viewer();
     const p = perms();
-    $('whoLine').textContent = `${PEOPLE[v.person].name}, ${LEVELS[v.role]}`;
     const visible = FILTERS.filter((f) => !f.team || p.team);
     if (!visible.some((f) => f.key === state.filter)) state.filter = 'mine';
     $('filters').innerHTML = visible.map((f) => {
@@ -400,7 +425,7 @@
     }
     if (!rows.length) {
       const hints = {
-        mine: 'You have no open cases. Take one from the Queue tab.',
+        mine: 'You have no open cases. Open "Waiting in queue" to pick one up.',
         tome: 'Nothing has been escalated to you.',
         queue: 'The queue is empty.',
         team: 'Your team has no open cases.',
@@ -424,6 +449,7 @@
 
   function renderPolicy() {
     const admin = perms().policy;
+    $('policySection').hidden = !admin; // only the Case Admin needs to see deadlines
     $('policyNote').textContent = admin
       ? 'Hours a case may stay at one level before it moves to the next. Changes apply to the next deadline that is calculated, as in Salesforce custom metadata.'
       : 'Hours a case may stay at one level before it moves to the next. Only a Case Admin can edit these.';

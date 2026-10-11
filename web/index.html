@@ -87,62 +87,69 @@
     <span class="badge" id="userBadge" hidden></span>
     <button type="button" id="logoutBtn">Log out</button>
   </div>
-  <div class="clock" aria-live="polite">
-    <span class="clock-time" id="clockTime"></span>
-    <div class="clock-buttons">
-      <button type="button" data-advance="30">+30 min</button>
-      <button type="button" data-advance="120">+2 h</button>
-      <button type="button" data-advance="480">+8 h</button>
-    </div>
-  </div>
 </header>
 
 <main>
-  <section class="intro">
-    <h1>Every case has a rung. Miss the deadline and it climbs.</h1>
-    <p>CaseFlow routes support cases through four worker profiles on Salesforce. Sign in as different worker profiles, escalate a case by hand, or move the clock forward and watch overdue cases escalate on their own.</p>
+  <!-- Who you are and what you can do, in plain words -->
+  <section class="welcome">
+    <div>
+      <p class="hello" id="hello">Hello</p>
+      <h1 id="roleTitle">Your cases</h1>
+      <p class="role-help" id="roleHelp"></p>
+    </div>
+    <button type="button" class="primary big" id="newCaseBtn">+ New case</button>
   </section>
 
-  <div class="workspace">
-    <section class="ladder" aria-labelledby="ladderTitle">
-      <h2 id="ladderTitle">Escalation ladder</h2>
-      <ol class="rungs" id="rungs" reversed></ol>
-      <div class="queue" id="queue"></div>
-      <p class="legend">
-        <span class="dot ok"></span>On track
-        <span class="dot risk"></span>Under 1 h left
-        <span class="dot breach"></span>Breached
-      </p>
-    </section>
+  <!-- Big numbers; click one to see those cases -->
+  <section class="stats" id="stats" aria-label="Summary"></section>
 
+  <div class="workspace">
     <section class="desk" aria-labelledby="deskTitle">
       <div class="desk-head">
-        <div>
-          <h2 id="deskTitle">Case desk</h2>
-          <p class="who" id="whoLine"></p>
-        </div>
-        <button type="button" class="primary" id="newCaseBtn">New case</button>
+        <h2 id="deskTitle">Cases</h2>
+        <p class="who">Click a case to open it.</p>
       </div>
       <div class="filters" id="filters" role="tablist"></div>
       <div class="case-list" id="caseList"></div>
     </section>
+
+    <aside class="side">
+      <!-- The escalation path: where open cases are right now -->
+      <section class="path-card" aria-labelledby="pathTitle">
+        <h2 id="pathTitle">Escalation path</h2>
+        <p class="side-help">If a case is not solved in time, it moves up one step.</p>
+        <ol class="esc-path" id="path"></ol>
+      </section>
+
+      <!-- Demo tool: move time forward to see automatic escalation -->
+      <section class="sim-card" aria-labelledby="simTitle">
+        <h2 id="simTitle">See automatic escalation</h2>
+        <p class="side-help">Move the clock forward. Cases that miss their deadline move up by themselves.</p>
+        <p class="sim-clock">Demo time: <b id="clockTime"></b></p>
+        <div class="clock-buttons">
+          <button type="button" data-advance="120">+2 hours</button>
+          <button type="button" data-advance="480">+8 hours</button>
+        </div>
+      </section>
+    </aside>
   </div>
 
   <section class="charts-panel" id="chartsSection" aria-labelledby="chartsTitle">
     <div class="policy-head">
       <h2 id="chartsTitle">Live insights</h2>
-      <p>Drawn on the server by a Python function using the pygal chart library.</p>
+      <p>Charts drawn on the server by Python (pygal library).</p>
     </div>
     <div class="charts-grid">
-      <figure class="chart-box"><figcaption>Open cases by level</figcaption><div class="chart" id="levelChart"><p class="chart-note">Loading chart…</p></div></figure>
-      <figure class="chart-box"><figcaption>SLA status of open cases</figcaption><div class="chart" id="slaChart"><p class="chart-note">Loading chart…</p></div></figure>
+      <figure class="chart-box"><figcaption>Open cases at each level</figcaption><div class="chart" id="levelChart"><p class="chart-note">Loading chart…</p></div></figure>
+      <figure class="chart-box"><figcaption>Are open cases on time?</figcaption><div class="chart" id="slaChart"><p class="chart-note">Loading chart…</p></div></figure>
     </div>
   </section>
 
-  <section class="policy" id="policySection" aria-labelledby="policyTitle">
+  <!-- Case Admin only -->
+  <section class="policy" id="policySection" aria-labelledby="policyTitle" hidden>
     <div class="policy-head">
-      <h2 id="policyTitle">Escalation matrix</h2>
-      <p id="policyNote">Hours a case may stay at one level before it moves to the next. Only the Case Admin can change these.</p>
+      <h2 id="policyTitle">Deadlines (escalation matrix)</h2>
+      <p id="policyNote">How many hours a case may wait at each step before it moves up. Only you, the Case Admin, can change these.</p>
     </div>
     <div class="policy-table-wrap"><table class="policy-table" id="policyTable"></table></div>
   </section>
@@ -150,28 +157,28 @@
   <section class="policy team" id="teamSection" aria-labelledby="teamTitle" hidden>
     <div class="policy-head">
       <h2 id="teamTitle">Team and roles</h2>
-      <p>Only the Case Admin sees this. Change a role and that person's access changes immediately.</p>
+      <p>Change someone's role and their access changes immediately.</p>
     </div>
     <div class="policy-table-wrap"><table class="policy-table" id="teamTable"></table></div>
   </section>
 
-  <section class="mapping" aria-labelledby="mapTitle">
-    <h2 id="mapTitle">What this demo stands in for</h2>
-    <p class="map-lead">The real application runs inside Salesforce. This page simulates the same rules in your browser so the workflow can be shown without a Salesforce login.</p>
+  <details class="about">
+    <summary>How this works in Salesforce</summary>
+    <p class="map-lead">The real application runs inside Salesforce. This page copies the same rules so it can be tried without a Salesforce login.</p>
     <dl class="map-grid">
-      <div><dt>Worker profiles</dt><dd>Four profiles, roles and permission sets: Support Agent, Team Lead, Support Manager, Case Admin.</dd></div>
-      <div><dt>Escalate button</dt><dd>The <code>escalateCase</code> Lightning Web Component quick action, backed by <code>EscalationService</code>.</dd></div>
-      <div><dt>Clock buttons</dt><dd><code>CaseEscalationBatch</code>, scheduled every 15 minutes, which escalates cases past their SLA.</dd></div>
-      <div><dt>Matrix</dt><dd>The <code>Escalation_Policy__mdt</code> custom metadata type, editable without code.</dd></div>
-      <div><dt>History</dt><dd><code>Escalation_Log__c</code> records written by <code>CaseTrigger</code>, shown in the Escalation History component.</dd></div>
-      <div><dt>Who gets the case</dt><dd>The least-loaded active user in the next role, or that level's queue if nobody holds the role.</dd></div>
+      <div><dt>Roles</dt><dd>Profiles, roles and permission sets for Support Agent, Team Lead, Support Manager and Case Admin.</dd></div>
+      <div><dt>Escalate button</dt><dd>A Lightning Web Component (<code>escalateCase</code>) that calls Apex (<code>EscalationService</code>).</dd></div>
+      <div><dt>Automatic escalation</dt><dd>An Apex job (<code>CaseEscalationBatch</code>) that runs every 15 minutes.</dd></div>
+      <div><dt>Deadlines</dt><dd>Custom metadata (<code>Escalation_Policy__mdt</code>) that admins edit without code.</dd></div>
+      <div><dt>History</dt><dd>An <code>Escalation_Log__c</code> record for every move, written by a trigger.</dd></div>
+      <div><dt>Who gets the case</dt><dd>The person in the next role with the fewest open cases.</dd></div>
     </dl>
-    <p class="reset-line">Data lives only in this browser. <button type="button" class="link" id="resetBtn">Reset demo data</button></p>
-  </section>
+    <p class="reset-line">Data is saved in this browser only. <button type="button" class="link" id="resetBtn">Reset demo data</button></p>
+  </details>
 </main>
 
 <footer class="foot">
-  <p>CaseFlow — B.E. Computer Science &amp; Engineering project, Karpagam Academy of Higher Education. Built on Salesforce Platform (Apex, Lightning Web Components).</p>
+  <p>CaseFlow · Built by Kishore S · Salesforce (Apex, Lightning Web Components), JavaScript, Python</p>
 </footer>
 
 </div><!-- /appView -->
