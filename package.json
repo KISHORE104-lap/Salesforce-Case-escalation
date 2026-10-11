@@ -1,0 +1,14 @@
+{
+  "name": "hiretrack",
+  "version": "1.0.0",
+  "description": "Job application tracker: HTML/CSS/JS frontend, Node.js serverless API, Redis database. Hosted on Vercel.",
+  "private": true,
+  "scripts": {
+    "dev": "node dev-server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Kishore S",
+  "license": "MIT"
+}
