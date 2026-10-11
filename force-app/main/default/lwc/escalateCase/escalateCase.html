@@ -1,0 +1,42 @@
+<template>
+    <lightning-quick-action-panel header="Escalate Case">
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+        </template>
+
+        <template if:true={error}>
+            <div class="slds-notify slds-notify_alert slds-alert_error slds-m-bottom_small" role="alert">{error}</div>
+        </template>
+
+        <template if:true={preview}>
+            <div class="path slds-m-bottom_medium">
+                <div class="step current">
+                    <p class="step-label">Now</p>
+                    <p class="step-value">{preview.currentLabel}</p>
+                </div>
+                <lightning-icon icon-name="utility:forward" size="x-small" class="arrow"></lightning-icon>
+                <div class="step next">
+                    <p class="step-label">After escalation</p>
+                    <p class="step-value">{preview.nextLabel}</p>
+                </div>
+            </div>
+            <p class="slds-text-body_small slds-m-bottom_small">
+                Case {preview.caseNumber} · {preview.priority} priority · SLA {preview.slaStatus}
+            </p>
+
+            <template if:true={blockedMessage}>
+                <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">{blockedMessage}</div>
+            </template>
+
+            <template if:true={canSubmit}>
+                <lightning-combobox label="Reason" required options={reasonOptions} value={reason} onchange={handleReason} placeholder="Why does this need to go up?"></lightning-combobox>
+                <lightning-textarea label="Comments for the next level" value={comments} onchange={handleComments} max-length="4000" class="slds-m-top_small"></lightning-textarea>
+            </template>
+        </template>
+
+        <div slot="footer">
+            <lightning-button label="Cancel" onclick={handleCancel}></lightning-button>
+            <lightning-button label="Escalate" variant="brand" class="slds-m-left_x-small" disabled={submitDisabled} onclick={handleSubmit}></lightning-button>
+        </div>
+    </lightning-quick-action-panel>
+</template>

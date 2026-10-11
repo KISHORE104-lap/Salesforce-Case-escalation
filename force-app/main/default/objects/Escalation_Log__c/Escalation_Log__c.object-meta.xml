@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Audit trail of every escalation of a case (manual or automatic)</description>
+    <enableActivities>false</enableActivities>
+    <enableHistory>false</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <label>Escalation Log</label>
+    <nameField>
+        <displayFormat>ESC-{00000}</displayFormat>
+        <label>Escalation Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Escalation Logs</pluralLabel>
+    <sharingModel>Read</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

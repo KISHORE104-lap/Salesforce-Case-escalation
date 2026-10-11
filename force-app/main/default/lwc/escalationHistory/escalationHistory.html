@@ -1,0 +1,31 @@
+<template>
+    <lightning-card title={title} icon-name="custom:custom55">
+        <lightning-button-icon slot="actions" icon-name="utility:refresh" alternative-text="Refresh" onclick={handleRefresh}></lightning-button-icon>
+        <div class="slds-p-horizontal_medium">
+            <template if:true={error}>
+                <p class="slds-text-color_error">{error}</p>
+            </template>
+            <template if:false={hasEntries}>
+                <p class="slds-text-color_weak">This case has not been escalated.</p>
+            </template>
+            <ul class="timeline">
+                <template for:each={entries} for:item="e">
+                    <li key={e.id} class="entry">
+                        <lightning-icon icon-name={e.icon} size="x-small" class="entry-icon"></lightning-icon>
+                        <div>
+                            <p class="entry-title">{e.from} → {e.to}</p>
+                            <p class="slds-text-body_small">
+                                <lightning-formatted-date-time value={e.at} day="2-digit" month="short" year="numeric" hour="2-digit" minute="2-digit"></lightning-formatted-date-time>
+                                · by {e.by} · to {e.toUser}
+                            </p>
+                            <p class="slds-text-body_small"><b>{e.reason}</b><template if:true={e.isAuto}> (automatic)</template></p>
+                            <template if:true={e.comments}>
+                                <p class="slds-text-body_small slds-text-color_weak">{e.comments}</p>
+                            </template>
+                        </div>
+                    </li>
+                </template>
+            </ul>
+        </div>
+    </lightning-card>
+</template>

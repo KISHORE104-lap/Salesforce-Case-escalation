@@ -1,0 +1,60 @@
+<template>
+    <lightning-card title={greeting} icon-name="standard:case">
+        <div slot="actions">
+            <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh" onclick={handleRefresh} class="slds-m-right_x-small"></lightning-button-icon>
+            <lightning-button label="New Case" icon-name="utility:add" variant="brand" onclick={handleNewCase}></lightning-button>
+        </div>
+
+        <div class="slds-p-horizontal_medium">
+            <template if:true={error}>
+                <div class="slds-notify slds-notify_alert slds-alert_error slds-m-bottom_small" role="alert">{error}</div>
+            </template>
+
+            <div class="tiles">
+                <template for:each={tiles} for:item="t">
+                    <div key={t.key} class={t.css}>
+                        <p class="tile-value">{t.value}</p>
+                        <p class="tile-label">{t.label}</p>
+                    </div>
+                </template>
+            </div>
+
+            <div class="priority slds-m-vertical_medium">
+                <p class="slds-text-title_caps slds-m-bottom_xx-small">Open cases by priority</p>
+                <div class="bars">
+                    <template for:each={priorityBars} for:item="b">
+                        <div key={b.key} class={b.css} style={b.style} title={b.key}>
+                            <span>{b.key} · {b.value}</span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="filters slds-m-bottom_small">
+                <template for:each={filterOptions} for:item="f">
+                    <lightning-button key={f.value} label={f.label} variant={f.variant} data-value={f.value} onclick={handleFilter} class="slds-m-right_x-small slds-m-bottom_x-small"></lightning-button>
+                </template>
+            </div>
+
+            <div class="table-wrap">
+                <template if:true={isLoading}>
+                    <lightning-spinner alternative-text="Loading cases" size="small"></lightning-spinner>
+                </template>
+                <template if:true={hasCases}>
+                    <lightning-datatable key-field="id" data={cases} columns={columns} hide-checkbox-column></lightning-datatable>
+                </template>
+                <template if:false={hasCases}>
+                    <p class="slds-text-color_weak slds-p-around_medium slds-text-align_center">No cases in this view.</p>
+                </template>
+            </div>
+
+            <template if:true={showPolicies}>
+                <h3 class="slds-text-heading_small slds-m-top_large slds-m-bottom_x-small">Escalation matrix</h3>
+                <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small">
+                    Edit in Setup → Custom Metadata Types → Escalation Policy → Manage Records.
+                </p>
+                <lightning-datatable key-field="DeveloperName" data={policies} columns={policyColumns} hide-checkbox-column></lightning-datatable>
+            </template>
+        </div>
+    </lightning-card>
+</template>

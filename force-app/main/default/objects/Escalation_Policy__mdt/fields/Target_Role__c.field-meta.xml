@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Target_Role__c</fullName>
+    <label>Target Role</label>
+    <description>Developer name of the UserRole that receives cases escalated to this level</description>
+    <length>80</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+    <fieldManageability>SubscriberControlled</fieldManageability>
+</CustomField>

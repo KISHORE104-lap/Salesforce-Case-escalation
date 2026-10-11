@@ -1,0 +1,5 @@
+.timeline { border-left: 2px solid #d8dde6; margin-left: 0.5rem; }
+.entry { display: flex; gap: 0.75rem; padding: 0 0 0.875rem 0.875rem; position: relative; }
+.entry-icon { position: absolute; left: -0.6rem; background: #fff; }
+.entry > div { padding-left: 0.75rem; }
+.entry-title { font-weight: 700; }

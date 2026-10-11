@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaseFlow — Case Management &amp; Escalation Demo</title>
+<meta name="description" content="Interactive demo of CaseFlow, a Salesforce case management and multi-level escalation system for support workers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Familjen+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F5DA8'/%3E%3Cpath d='M9 24h14M9 18h14M9 12h14M12 8v18M20 8v18' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 24h14M9 18h14M9 12h14M12 8v18M20 8v18"/></svg>
+    <span>CaseFlow</span>
+  </div>
+  <nav class="roles" aria-label="View the app as">
+    <span class="roles-label">Viewing as</span>
+    <div class="role-buttons" id="roleButtons"></div>
+  </nav>
+  <div class="clock" aria-live="polite">
+    <span class="clock-time" id="clockTime"></span>
+    <div class="clock-buttons">
+      <button type="button" data-advance="30">+30 min</button>
+      <button type="button" data-advance="120">+2 h</button>
+      <button type="button" data-advance="480">+8 h</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="intro">
+    <h1>Every case has a rung. Miss the deadline and it climbs.</h1>
+    <p>CaseFlow routes support cases through four worker profiles on Salesforce. Switch profiles above, escalate a case by hand, or move the clock forward and watch overdue cases escalate on their own.</p>
+  </section>
+
+  <div class="workspace">
+    <section class="ladder" aria-labelledby="ladderTitle">
+      <h2 id="ladderTitle">Escalation ladder</h2>
+      <ol class="rungs" id="rungs" reversed></ol>
+      <div class="queue" id="queue"></div>
+      <p class="legend">
+        <span class="dot ok"></span>On track
+        <span class="dot risk"></span>Under 1 h left
+        <span class="dot breach"></span>Breached
+      </p>
+    </section>
+
+    <section class="desk" aria-labelledby="deskTitle">
+      <div class="desk-head">
+        <div>
+          <h2 id="deskTitle">Case desk</h2>
+          <p class="who" id="whoLine"></p>
+        </div>
+        <button type="button" class="primary" id="newCaseBtn">New case</button>
+      </div>
+      <div class="filters" id="filters" role="tablist"></div>
+      <div class="case-list" id="caseList"></div>
+    </section>
+  </div>
+
+  <section class="policy" id="policySection" aria-labelledby="policyTitle">
+    <div class="policy-head">
+      <h2 id="policyTitle">Escalation matrix</h2>
+      <p id="policyNote">Hours a case may stay at one level before it moves to the next. Only the Case Admin can change these.</p>
+    </div>
+    <div class="policy-table-wrap"><table class="policy-table" id="policyTable"></table></div>
+  </section>
+
+  <section class="mapping" aria-labelledby="mapTitle">
+    <h2 id="mapTitle">What this demo stands in for</h2>
+    <p class="map-lead">The real application runs inside Salesforce. This page simulates the same rules in your browser so the workflow can be shown without a Salesforce login.</p>
+    <dl class="map-grid">
+      <div><dt>Worker profiles</dt><dd>Four profiles, roles and permission sets: Support Agent, Team Lead, Support Manager, Case Admin.</dd></div>
+      <div><dt>Escalate button</dt><dd>The <code>escalateCase</code> Lightning Web Component quick action, backed by <code>EscalationService</code>.</dd></div>
+      <div><dt>Clock buttons</dt><dd><code>CaseEscalationBatch</code>, scheduled every 15 minutes, which escalates cases past their SLA.</dd></div>
+      <div><dt>Matrix</dt><dd>The <code>Escalation_Policy__mdt</code> custom metadata type, editable without code.</dd></div>
+      <div><dt>History</dt><dd><code>Escalation_Log__c</code> records written by <code>CaseTrigger</code>, shown in the Escalation History component.</dd></div>
+      <div><dt>Who gets the case</dt><dd>The least-loaded active user in the next role, or that level's queue if nobody holds the role.</dd></div>
+    </dl>
+    <p class="reset-line">Data lives only in this browser. <button type="button" class="link" id="resetBtn">Reset demo data</button></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>CaseFlow — B.E. Computer Science &amp; Engineering project, Karpagam Academy of Higher Education. Built on Salesforce Platform (Apex, Lightning Web Components).</p>
+</footer>
+
+<div class="drawer-scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-modal="true" role="dialog" aria-labelledby="drawerTitle" hidden></aside>
+
+<dialog class="modal" id="newCaseDialog" aria-labelledby="newCaseTitle">
+  <form method="dialog" id="newCaseForm">
+    <h2 id="newCaseTitle">New case</h2>
+    <label>Subject<input name="subject" required maxlength="120" placeholder="What is the problem?"></label>
+    <div class="row">
+      <label>Priority
+        <select name="priority"><option>High</option><option selected>Medium</option><option>Low</option></select>
+      </label>
+      <label>Department
+        <select name="dept"><option>IT Support</option><option>HR</option><option>Finance</option><option>Operations</option><option>Facilities</option></select>
+      </label>
+    </div>
+    <label>Description<textarea name="description" rows="3" placeholder="Steps tried, who is affected"></textarea></label>
+    <p class="hint">New cases go to the Tier 1 Support queue until an agent takes them.</p>
+    <div class="actions">
+      <button type="button" value="cancel" id="cancelNewCase">Cancel</button>
+      <button type="submit" class="primary" value="create">Create case</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
