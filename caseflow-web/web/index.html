@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaseFlow — Case Management &amp; Escalation Demo</title>
+<meta name="description" content="Interactive demo of CaseFlow, a Salesforce case management and multi-level escalation system for support workers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Familjen+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=4">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F5DA8'/%3E%3Cpath d='M9 24h14M9 18h14M9 12h14M12 8v18M20 8v18' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<!-- ================= LOGIN / CREATE ACCOUNT ================= -->
+<div class="auth" id="authView" hidden>
+  <section class="auth-side" aria-label="About CaseFlow">
+    <div class="brand on-dark">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 24h14M9 18h14M9 12h14M12 8v18M20 8v18"/></svg>
+      <span>CaseFlow</span>
+    </div>
+    <div class="auth-copy">
+      <h1>Sign in with your worker profile.</h1>
+      <p>What you see and what you can do depends on your role, exactly like profiles and permission sets in Salesforce.</p>
+    </div>
+    <ol class="auth-ladder" aria-label="The four roles, from highest to lowest">
+      <li><b>Case Admin</b><span>Manages the escalation matrix and the team</span></li>
+      <li><b>Support Manager</b><span>Sees every case and every SLA breach</span></li>
+      <li><b>Team Lead</b><span>Receives escalations, reassigns work</span></li>
+      <li><b>Support Agent</b><span>Takes cases from the queue and escalates</span></li>
+    </ol>
+  </section>
+
+  <section class="auth-main">
+    <div class="auth-card">
+      <div class="auth-tabs" role="tablist">
+        <button type="button" role="tab" id="tabSignIn" aria-selected="true">Sign in</button>
+        <button type="button" role="tab" id="tabCreate" aria-selected="false">Create account</button>
+      </div>
+      <p class="auth-error" id="authError" role="alert" hidden></p>
+
+      <form id="signInForm" novalidate>
+        <h2>Welcome back</h2>
+        <label class="field">Username<input name="username" autocomplete="username" required placeholder="e.g. asha"></label>
+        <label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary wide">Sign in</button>
+        <div class="demo-accounts">
+          <p>Demo accounts, password <code>demo1234</code>. Click one to fill it in:</p>
+          <div class="demo-grid">
+            <button type="button" data-demo="asha">Asha<small>Support Agent</small></button>
+            <button type="button" data-demo="lokesh">Lokesh<small>Team Lead</small></button>
+            <button type="button" data-demo="meera">Meera<small>Support Manager</small></button>
+            <button type="button" data-demo="arun">Arun<small>Case Admin</small></button>
+          </div>
+        </div>
+      </form>
+
+      <form id="createForm" novalidate hidden>
+        <h2>Create your account</h2>
+        <label class="field">Full name<input name="name" autocomplete="name" required maxlength="40" placeholder="e.g. Priya S."></label>
+        <label class="field">Username<input name="username" autocomplete="username" required maxlength="20" placeholder="lowercase letters and numbers"></label>
+        <label class="field">Password<input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"></label>
+        <label class="field">Role
+          <select name="role">
+            <option value="0">Support Agent</option>
+            <option value="1">Team Lead</option>
+            <option value="2">Support Manager</option>
+          </select>
+        </label>
+        <p class="hint">Case Admin access is granted by an existing Case Admin.</p>
+        <button type="submit" class="primary wide">Create account</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<!-- ================= THE APP (after sign in) ================= -->
+<div id="appView" hidden>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M9 24h14M9 18h14M9 12h14M12 8v18M20 8v18"/></svg>
+    <span>CaseFlow</span>
+  </div>
+  <div class="userbox" aria-label="Signed-in user">
+    <span class="avatar" id="userAvatar" aria-hidden="true"></span>
+    <span class="user-text"><b id="userName"></b><span class="role-pill" id="userRole"></span></span>
+    <span class="badge" id="userBadge" hidden></span>
+    <button type="button" id="logoutBtn">Log out</button>
+  </div>
+</header>
+
+<main>
+  <!-- Who you are and what you can do, in plain words -->
+  <section class="welcome">
+    <div>
+      <p class="hello" id="hello">Hello</p>
+      <h1 id="roleTitle">Your cases</h1>
+      <p class="role-help" id="roleHelp"></p>
+    </div>
+    <button type="button" class="primary big" id="newCaseBtn">+ New case</button>
+  </section>
+
+  <!-- Big numbers; click one to see those cases -->
+  <section class="stats" id="stats" aria-label="Summary"></section>
+
+  <div class="workspace">
+    <section class="desk" aria-labelledby="deskTitle">
+      <div class="desk-head">
+        <h2 id="deskTitle">Cases</h2>
+        <p class="who">Click a case to open it.</p>
+      </div>
+      <div class="filters" id="filters" role="tablist"></div>
+      <div class="case-list" id="caseList"></div>
+    </section>
+
+    <aside class="side">
+      <!-- The escalation path: where open cases are right now -->
+      <section class="path-card" aria-labelledby="pathTitle">
+        <h2 id="pathTitle">Escalation path</h2>
+        <p class="side-help">If a case is not solved in time, it moves up one step.</p>
+        <ol class="esc-path" id="path"></ol>
+      </section>
+
+      <!-- Demo tool: move time forward to see automatic escalation -->
+      <section class="sim-card" aria-labelledby="simTitle">
+        <h2 id="simTitle">See automatic escalation</h2>
+        <p class="side-help">Move the clock forward. Cases that miss their deadline move up by themselves.</p>
+        <p class="sim-clock">Demo time: <b id="clockTime"></b></p>
+        <div class="clock-buttons">
+          <button type="button" data-advance="120">+2 hours</button>
+          <button type="button" data-advance="480">+8 hours</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="charts-panel" id="chartsSection" aria-labelledby="chartsTitle">
+    <div class="policy-head">
+      <h2 id="chartsTitle">Live insights</h2>
+      <p>Charts drawn on the server by Python (pygal library).</p>
+    </div>
+    <div class="charts-grid">
+      <figure class="chart-box"><figcaption>Open cases at each level</figcaption><div class="chart" id="levelChart"><p class="chart-note">Loading chart…</p></div></figure>
+      <figure class="chart-box"><figcaption>Are open cases on time?</figcaption><div class="chart" id="slaChart"><p class="chart-note">Loading chart…</p></div></figure>
+    </div>
+  </section>
+
+  <!-- Case Admin only -->
+  <section class="policy" id="policySection" aria-labelledby="policyTitle" hidden>
+    <div class="policy-head">
+      <h2 id="policyTitle">Deadlines (escalation matrix)</h2>
+      <p id="policyNote">How many hours a case may wait at each step before it moves up. Only you, the Case Admin, can change these.</p>
+    </div>
+    <div class="policy-table-wrap"><table class="policy-table" id="policyTable"></table></div>
+  </section>
+
+  <section class="policy team" id="teamSection" aria-labelledby="teamTitle" hidden>
+    <div class="policy-head">
+      <h2 id="teamTitle">Team and roles</h2>
+      <p>Change someone's role and their access changes immediately.</p>
+    </div>
+    <div class="policy-table-wrap"><table class="policy-table" id="teamTable"></table></div>
+  </section>
+
+  <details class="about">
+    <summary>How this works in Salesforce</summary>
+    <p class="map-lead">The real application runs inside Salesforce. This page copies the same rules so it can be tried without a Salesforce login.</p>
+    <dl class="map-grid">
+      <div><dt>Roles</dt><dd>Profiles, roles and permission sets for Support Agent, Team Lead, Support Manager and Case Admin.</dd></div>
+      <div><dt>Escalate button</dt><dd>A Lightning Web Component (<code>escalateCase</code>) that calls Apex (<code>EscalationService</code>).</dd></div>
+      <div><dt>Automatic escalation</dt><dd>An Apex job (<code>CaseEscalationBatch</code>) that runs every 15 minutes.</dd></div>
+      <div><dt>Deadlines</dt><dd>Custom metadata (<code>Escalation_Policy__mdt</code>) that admins edit without code.</dd></div>
+      <div><dt>History</dt><dd>An <code>Escalation_Log__c</code> record for every move, written by a trigger.</dd></div>
+      <div><dt>Who gets the case</dt><dd>The person in the next role with the fewest open cases.</dd></div>
+    </dl>
+    <p class="reset-line">Data is saved in this browser only. <button type="button" class="link" id="resetBtn">Reset demo data</button></p>
+  </details>
+</main>
+
+<footer class="foot">
+  <p>CaseFlow · Built by Kishore S · Salesforce (Apex, Lightning Web Components), JavaScript, Python</p>
+</footer>
+
+</div><!-- /appView -->
+
+<div class="drawer-scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-modal="true" role="dialog" aria-labelledby="drawerTitle" hidden></aside>
+
+<dialog class="modal" id="newCaseDialog" aria-labelledby="newCaseTitle">
+  <form method="dialog" id="newCaseForm">
+    <h2 id="newCaseTitle">New case</h2>
+    <label>Subject<input name="subject" required maxlength="120" placeholder="What is the problem?"></label>
+    <div class="row">
+      <label>Priority
+        <select name="priority"><option>High</option><option selected>Medium</option><option>Low</option></select>
+      </label>
+      <label>Department
+        <select name="dept"><option>IT Support</option><option>HR</option><option>Finance</option><option>Operations</option><option>Facilities</option></select>
+      </label>
+    </div>
+    <label>Description<textarea name="description" rows="3" placeholder="Steps tried, who is affected"></textarea></label>
+    <p class="hint">New cases go to the Tier 1 Support queue until an agent takes them.</p>
+    <div class="actions">
+      <button type="button" value="cancel" id="cancelNewCase">Cancel</button>
+      <button type="submit" class="primary" value="create">Create case</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="app.js?v=4"></script>
+</body>
+</html>
